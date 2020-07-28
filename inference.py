@@ -158,6 +158,7 @@ def load_fields(fpath):
 
 def prepare_input_sequence(fields, device, batch_size=1, dataset=None,
                            load_mels=False, load_pitch=False):
+    print(fields)
     fields['text'] = [torch.LongTensor(text_to_sequence(t, ['english_cleaners']))
                       for t in fields['text']]
     #order = np.argsort([-t.size(0) for t in fields['text']])

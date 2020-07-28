@@ -114,6 +114,8 @@ def parse_args(parser):
                          help='Path to training filelist')
     dataset.add_argument('--validation-files', type=str, required=True,
                          help='Path to validation filelist')
+    dataset.add_argument('--test-files', type=str, required=True,
+                         help='Path to test filelist')
     dataset.add_argument('--pitch-mean-std-file', type=str, default=None,
                          help='Path to pitch stats to be stored in the model')
     dataset.add_argument('--text-cleaners', nargs='*',
@@ -365,6 +367,8 @@ def main():
                                               args.training_files, args)
     valset = data_functions.get_data_loader('FastPitch', args.dataset_path,
                                             args.validation_files, args)
+    testset = data_functions.get_data_loader('FastPitch', args.dataset_path,
+                                            args.test_files, args)
     if distributed_run:
         train_sampler, shuffle = DistributedSampler(trainset), False
     else:
@@ -381,6 +385,7 @@ def main():
 
     train_tblogger = TBLogger(local_rank, args.output, 'train')
     val_tblogger = TBLogger(local_rank, args.output, 'val', dummies=True)
+    test_tblogger = TBLogger(local_rank, args.output, 'test', dummies=True)
     if args.ema_decay > 0:
         val_ema_tblogger = TBLogger(local_rank, args.output, 'val_ema')
 
@@ -514,6 +519,20 @@ def main():
             ('took', tok - tik),
         ]))
         val_tblogger.log_meta(total_iter, meta)
+
+        tik = time.time()
+        test_loss, meta, num_frames = validate(
+            model, criterion, testset, args.batch_size, world_size, collate_fn,
+            distributed_run, local_rank, batch_to_gpu, use_gt_durations=True)
+        tok = time.time()
+
+        DLLogger.log((epoch,), data=OrderedDict([
+            ('test_loss', val_loss),
+            ('test_mel_loss', meta['mel_loss'].item()),
+            ('test_frames/s', num_frames / (tok - tik)),
+            ('took', tok - tik),
+        ]))
+        test_tblogger.log_meta(total_iter, meta)
 
         if args.ema_decay > 0:
             tik_e = time.time()

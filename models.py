@@ -36,12 +36,14 @@ sys.path.append(abspath(dirname(__file__)+'/'))
 from fastpitch.model import FastPitch as _FastPitch
 from fastpitch.model_jit import FastPitch as _FastPitchJIT
 from tacotron2.model import Tacotron2
+from tacotron2.model_mmi import Tacotron2mmi
 from waveglow.model import WaveGlow
 
 
 def parse_model_args(model_name, parser, add_help=False):
-    if model_name == 'Tacotron2':
+    if model_name == 'Tacotron2' or model_name == 'Tacotron2mmi':
         from tacotron2.arg_parser import parse_tacotron2_args
+        print('+++++++++++++++++++++++++')
         return parse_tacotron2_args(parser, add_help)
     if model_name == 'WaveGlow':
         from waveglow.arg_parser import parse_waveglow_args
@@ -83,6 +85,15 @@ def get_model(model_name, model_config, device,
             model = Tacotron2__forward_is_infer(**model_config)
         else:
             model = Tacotron2(**model_config)
+
+    if model_name == 'Tacotron2mmi':
+        if forward_is_infer:
+            class Tacotron2__forward_is_infer(Tacotron2):
+                def forward(self, inputs, input_lengths):
+                    return self.infer(inputs, input_lengths)
+            model = Tacotron2mmi__forward_is_infer(**model_config)
+        else:
+            model = Tacotron2mmi(**model_config)
 
     elif model_name == 'WaveGlow':
         if forward_is_infer:
@@ -129,7 +140,7 @@ def get_model(model_name, model_config, device,
 
 def get_model_config(model_name, args):
     """ Code chooses a model based on name"""
-    if model_name == 'Tacotron2':
+    if model_name == 'Tacotron2' or model_name == 'Tacotron2mmi':
         model_config = dict(
             # optimization
             mask_padding=args.mask_padding,
